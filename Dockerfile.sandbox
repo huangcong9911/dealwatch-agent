@@ -1,0 +1,7 @@
+# Disposable browser sandbox. Built once on the Vultr VM, started fresh (and
+# destroyed) for every agent task. Contains no secrets.
+FROM mcr.microsoft.com/playwright/python:v1.64.1-noble
+WORKDIR /sandbox
+COPY sandbox_runner.py /sandbox/sandbox_runner.py
+USER pwuser
+ENTRYPOINT ["python3", "-u", "/sandbox/sandbox_runner.py"]

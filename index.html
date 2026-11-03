@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DealWatch Agent - sandboxed VPS deal watcher on Vultr</title>
+<style>
+:root{--bg:#0b1020;--card:#141b31;--line:#25304f;--txt:#e6e9f2;--mut:#8f9ab8;--acc:#3b82f6;--ok:#22c55e;--bad:#ef4444;--warn:#f59e0b}
+*{box-sizing:border-box}body{margin:0;font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+header{padding:22px 28px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+h1{margin:0;font-size:22px}h1 span{color:var(--acc)}.sub{color:var(--mut);font-size:13px}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid var(--line);color:var(--mut);margin:2px}
+main{display:grid;grid-template-columns:360px 1fr;gap:18px;padding:18px 28px}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 10px}
+input,textarea{width:100%;background:#0d1428;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px;font:inherit}
+textarea{height:60px;resize:vertical}label{font-size:12px;color:var(--mut);display:block;margin:8px 0 4px}
+button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt);font-weight:500;padding:6px 10px;margin:3px 3px 0 0;font-size:12px}
+button.evil{border-color:#7f1d1d;color:#fca5a5}button.ok{background:var(--ok)}button.bad{background:var(--bad)}
+.run{padding:9px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer}.run:hover,.run.sel{border-color:var(--acc)}
+.run .u{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.st.done{color:var(--ok)}.st.running,.st.queued{color:var(--warn)}.st.error{color:var(--bad)}.st.awaiting_approval{color:#a78bfa}
+.pipe{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}.pipe div{flex:1;min-width:90px;text-align:center;padding:8px 4px;border-radius:8px;border:1px solid var(--line);font-size:12px;color:var(--mut)}
+.pipe div.on{border-color:var(--acc);color:var(--txt);background:#1a2547}
+.ev{font-size:12.5px;padding:4px 0;border-bottom:1px dashed #1f2943;display:flex;gap:8px}.ev b{min-width:88px;color:var(--mut);font-weight:600}
+.ev.bad span{color:#fca5a5}
+table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left;padding:6px;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:600}
+.shot{width:100%;border-radius:8px;border:1px solid var(--line)}
+.probe{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #1f2943;font-size:12.5px}
+.shield{font-weight:800;min-width:92px}.shield.y{color:var(--ok)}.shield.n{color:var(--bad)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:1200px){.grid2{grid-template-columns:1fr}}
+.banner{padding:10px 12px;border-radius:8px;margin-bottom:10px;font-size:13px}.banner.red{background:#3b0d0d;border:1px solid #7f1d1d}.banner.green{background:#0d2b18;border:1px solid #166534}.banner.purple{background:#22163f;border:1px solid #5b21b6}
+.mut{color:var(--mut)}a{color:#93c5fd}
+</style></head><body>
+<header><div><h1>Deal<span>Watch</span> Agent</h1><div class="sub">An AI agent that browses VPS deal pages for you &mdash; every click runs in a disposable, gVisor-isolated sandbox on Vultr.</div></div>
+<div id="stack"></div></header>
+<main>
+<section>
+ <div class="card"><h2>New watch</h2>
+  <label>Deal page URL</label><input id="url" placeholder="https://www.racknerd.com/specials/">
+  <label>Goal</label><textarea id="goal">Find current VPS deals and promotions (price, specs, promo code).</textarea>
+  <div style="margin-top:10px"><button onclick="go()">Run agent in sandbox</button></div>
+  <div style="margin-top:12px" class="mut">Presets</div><div id="presets"></div>
+  <div id="msg" class="mut" style="margin-top:8px"></div>
+ </div>
+ <div class="card"><h2>Runs</h2><div id="runs" class="mut">Loading&hellip;</div></div>
+ <div class="card"><h2>Approved deal alerts</h2><div id="alerts" class="mut">None yet.</div></div>
+</section>
+<section id="detail"><div class="card"><h2>How it works</h2>
+ <div class="pipe"><div class="on">1. Plan<br><small>LLM on Vultr Serverless Inference</small></div><div class="on">2. Sandbox<br><small>Playwright in gVisor container</small></div><div class="on">3. Verify<br><small>vision model reads screenshot</small></div><div class="on">4. Diff<br><small>vs last snapshot</small></div><div class="on">5. Approve<br><small>human-in-the-loop alert</small></div></div>
+ <p class="mut">Pick a preset or paste a VPS vendor URL. Try <b>Containment test</b> to watch a malicious page attempt prompt injection, metadata theft and data exfiltration &mdash; and fail.</p>
+</div></section>
+</main>
+<script>
+let cur=null, timer=null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ago=t=>{if(!t)return'';const s=(Date.now()/1000-t)|0;return s<60?s+'s ago':s<3600?((s/60)|0)+'m ago':((s/3600)|0)+'h ago'};
+async function cfg(){const c=await (await fetch('/api/config')).json();
+ $('#presets').innerHTML=c.presets.map((p,i)=>`<button class="ghost ${p.url.startsWith('fixture')?'evil':''}" data-i="${i}">${esc(p.label)}</button>`).join('');
+ document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{const p=c.presets[b.dataset.i];$('#url').value=p.url;$('#goal').value=p.goal;go()});
+ $('#stack').innerHTML=[`LLM: ${c.model}`,`Runtime: ${c.runtime}`,`Sandbox: ${c.memory} RAM / ${c.timeout_s}s cap`,'Host: Vultr Cloud Compute'].map(x=>`<span class="pill">${esc(x)}</span>`).join('');}
+async function go(){$('#msg').textContent='Dispatching…';
+ const r=await fetch('/api/watch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('#url').value,goal:$('#goal').value})});
+ const j=await r.json(); if(!r.ok){$('#msg').textContent=j.detail||'error';return}
+ $('#msg').textContent='Run started.'; cur=j.run_id; runs(); show(cur);}
+async function runs(){const rs=await (await fetch('/api/runs')).json();
+ $('#runs').innerHTML=rs.length?rs.map(r=>`<div class="run ${r.id===cur?'sel':''}" onclick="show('${r.id}')"><span class="st ${r.status}">${r.status.replace('_',' ')}</span> <span class="mut" style="font-size:11px">${ago(r.created)} · ${r.trigger||''}${r.new_count?' · '+r.new_count+' new':''}</span><div class="u">${esc(r.url)}</div></div>`).join(''):'No runs yet.';
+ const al=await (await fetch('/api/alerts')).json();
+ $('#alerts').innerHTML=al.length?al.map(a=>`<div class="ev"><b>${ago(a.at)}</b><span>${esc(a.url)}<br>${a.deals.slice(0,3).map(d=>esc(`${d.plan} ${d.price}`)).join(' · ')}</span></div>`).join(''):'None yet.';}
+async function act(id,what){await fetch(`/api/runs/${id}/${what}`,{method:'POST'});show(id);runs();}
+async function show(id){cur=id;clearTimeout(timer);const d=await (await fetch('/api/runs/'+id)).json();
+ const stages=['plan','sandbox','verify','diff','approve'];const seen=new Set((d.events||[]).map(e=>e.stage));
+ const v=d.verdict||{}, c=d.containment||{}, sb=d.sandbox||{};
+ let h=`<div class="card"><h2>${esc(d.url)}</h2><div class="mut">${esc(d.goal)}</div>
+ <div class="pipe">${stages.map(s=>`<div class="${seen.has(s)||(s==='sandbox'&&seen.has('containment'))?'on':''}">${s}</div>`).join('')}</div>`;
+ if(d.status==='awaiting_approval')h+=`<div class="banner purple">${(d.new_deals||[]).length} new deal(s) found. Publish this alert?&nbsp; <button class="ok" onclick="act('${id}','approve')">Approve alert</button> <button class="bad" onclick="act('${id}','reject')">Reject</button></div>`;
+ if(c.injection_detected)h+=`<div class="banner red"><b>Prompt injection detected and ignored.</b> ${esc(c.injection_notes)}</div>`;
+ if(c.probes&&c.probes.length)h+=`<div class="banner ${c.all_contained?'green':'red'}"><b>${c.all_contained?'Containment held':'Containment issue'}</b> &mdash; ${c.probes.filter(p=>p.contained).length}/${c.probes.length} escape attempts blocked, ${(c.blocked||[]).length} requests blocked by policy, sandbox destroyed: ${c.destroyed?'yes':'no'}.</div>`;
+ h+=`<div class="mut" style="font-size:12px">Status: <span class="st ${d.status}">${d.status}</span> ${sb.elapsed_s?'· sandbox time '+sb.elapsed_s+'s':''} ${v.model?'· verified by '+esc(v.model):''}</div></div>`;
+ h+=`<div class="grid2"><div>`;
+ if(v.summary)h+=`<div class="card"><h2>Agent summary</h2><p>${esc(v.summary)}</p>${v.best_deal?`<p><b>Best deal:</b> ${esc(v.best_deal)}</p>`:''}</div>`;
+ if(v.deals&&v.deals.length){const nk=new Set((d.new_deals||[]).map(x=>JSON.stringify(x)));
+  h+=`<div class="card"><h2>Deals found (${v.deals.length})</h2><table><tr><th>Provider</th><th>Plan</th><th>Price</th><th>Specs</th><th>Code</th></tr>${v.deals.map(x=>`<tr><td>${nk.has(JSON.stringify(x))?'🆕 ':''}${esc(x.provider)}</td><td>${esc(x.plan)}</td><td>${esc(x.price)} ${esc(x.billing)}</td><td>${esc(x.specs)}</td><td>${esc(x.promo_code)}</td></tr>`).join('')}</table></div>`;}
+ h+=`<div class="card"><h2>Agent trace</h2>${(d.events||[]).map(e=>`<div class="ev ${e.ok?'':'bad'}"><b>${esc(e.stage)}</b><span>${esc(e.text)}</span></div>`).join('')||'<span class="mut">Queued…</span>'}</div>`;
+ h+=`</div><div>`;
+ if(d.has_screenshot)h+=`<div class="card"><h2>Sandbox screenshot</h2><img class="shot" src="/api/runs/${id}/screenshot?x=${d.finished||''}"><div class="mut" style="font-size:12px;margin-top:6px">${esc(sb.title||'')}</div></div>`;
+ if(c.probes&&c.probes.length)h+=`<div class="card"><h2>Containment report</h2>${c.probes.map(p=>`<div class="probe"><span class="shield ${p.contained?'y':'n'}">${p.contained?'🛡 CONTAINED':'⚠ EXPOSED'}</span><span><b>${esc(p.check)}</b><br><span class="mut">${esc(p.attempt)} → ${esc(p.detail)}</span></span></div>`).join('')}
+ ${(c.blocked||[]).length?`<h2 style="margin-top:12px">Blocked by egress policy</h2>${c.blocked.map(b=>`<div class="ev bad"><b>${esc(b.type)}</b><span>${esc(b.why)}: ${esc(b.url)}</span></div>`).join('')}`:''}</div>`;
+ if(d.plan&&d.plan.steps)h+=`<div class="card"><h2>Plan (${esc(d.plan.source||'')})</h2><pre style="white-space:pre-wrap;font-size:12px;margin:0">${esc(JSON.stringify(d.plan.steps,null,1))}</pre></div>`;
+ h+=`</div></div>`;
+ $('#detail').innerHTML=h; runs();
+ if(['queued','running'].includes(d.status))timer=setTimeout(()=>show(id),2000);}
+cfg();runs();setInterval(runs,15000);
+</script></body></html>
