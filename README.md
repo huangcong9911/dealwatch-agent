@@ -4,8 +4,9 @@
 
 Built for the **lablab.ai × Vultr "Agent Rush" Hackathon** — Challenge 1: *Blast Radius Zero* (Pattern B · sandboxed browser use).
 
-- **Live demo:** _see the lablab.ai submission page (deployed on a Vultr Cloud Compute VM)_
-- **Stack:** Vultr Cloud Compute · Vultr Serverless Inference (`qwen3.8-flash-next`, vision) · Docker + gVisor (`runsc`) · Playwright/Chromium · FastAPI · Caddy
+- **Live demo:** https://202-182-108-36.sslip.io (Vultr Cloud Compute VM, Tokyo)
+- **Slides & video:** see the lablab.ai submission
+- **Stack:** Vultr Cloud Compute · OpenAI-compatible LLM endpoint (live demo: `qwen2.5:3b` via Ollama on the same Vultr VM; set `VULTR_INFERENCE_BASE_URL`/`VULTR_INFERENCE_API_KEY` to use Vultr Serverless Inference) · Docker + gVisor (`runsc`) · Playwright/Chromium · FastAPI · Caddy
 
 ---
 
@@ -45,7 +46,7 @@ Everything runs on one **Vultr Cloud Compute** instance (1 vCPU / 2 GB, Ubuntu 2
 | Vultr service | Role in DealWatch |
 |---|---|
 | **Cloud Compute VM** | Hosts the public web app (Caddy + FastAPI), the agent orchestrator, the Docker + gVisor sandbox runtime and the iptables egress firewall. |
-| **Serverless Inference** (`https://api.vultrinference.com/v1`) | Planner model (turns a goal into an allow-listed browser plan) and vision verifier (reads the sandbox screenshot + text, extracts deals, detects prompt injection). The API key lives only in `/etc/dealwatch.env` on the host. |
+| **LLM endpoint** (live demo: local Ollama `qwen2.5:3b` on the VM; drop-in Vultr Serverless Inference `https://api.vultrinference.com/v1`) | Planner model (turns a goal into an allow-listed browser plan) and vision verifier (reads the sandbox screenshot + text, extracts deals, detects prompt injection). The API key lives only in `/etc/dealwatch.env` on the host. |
 
 ## Containment design
 
