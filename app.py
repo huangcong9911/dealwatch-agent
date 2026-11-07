@@ -217,7 +217,7 @@ def verify(run_id, url, goal, sb, previous):
             "visible_text": (sb.get("text") or "")[:9000],
         })},
     ]
-    if sb.get("screenshot_b64"):
+    if sb.get("screenshot_b64") and os.environ.get("DEALWATCH_USE_VISION", "0") == "1":
         content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + sb["screenshot_b64"]}})
     try:
         v, usage, model = llm.chat_json([
