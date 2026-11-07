@@ -224,6 +224,9 @@ def verify(run_id, url, goal, sb, previous):
             {"role": "system", "content": VERIFY_SYSTEM},
             {"role": "user", "content": content},
         ], model=llm.VISION_MODEL, max_tokens=1800)
+        if not isinstance(v, dict):
+            v = {"deals": []}
+        v["deals"] = [d for d in (v.get("deals") or []) if isinstance(d, dict)]
         v["model"] = model
         v["usage"] = usage
         add_event(run_id, "verify", "%s read the screenshot + text: %d deals; injection detected: %s" % (model, len(v.get("deals", [])), v.get("prompt_injection_detected")))
@@ -275,7 +278,7 @@ def execute(run_id, watch_id, url, goal):
             probes = sb.get("probes", [])
             containment = {"probes": probes, "blocked": sb.get("blocked", []), "destroyed": sb.get("destroyed"),
                            "injection_detected": v.get("prompt_injection_detected"), "injection_notes": v.get("injection_notes", ""),
-                           "all_contained": all(p.get("contained") for p in probes) if probes else None}
+                           "all_contained": all(isinstance(p, dict) and p.get("contained") for p in probes) if probes else None}
             deals = v.get("deals", [])
             if prev is None:
                 new = deals
